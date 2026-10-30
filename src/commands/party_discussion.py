@@ -1,6 +1,7 @@
 """Two-pass AI party discussion using character-safe contexts, never GM state."""
 from __future__ import annotations
 import json
+import asyncio
 from typing import Any
 
 from src.engine import party_planning
@@ -57,6 +58,9 @@ async def _deliberate_pass(instance: Any, llm_client: Any, seat_runtime: Any = N
             '过去某轮“暂不进入”“先观察”等临时计划只适用于当轮，不是永久禁令。'
             '当新线索降低风险或原方案没有进展时，可以重新提出改变分工或进入下一处地点，'
             '由本轮全员重新确认。关注已接受的调查目标和受困者，不要把取得绝对安全当作行动前提。'
+            '若方法和目标已经清楚，提出具体执行尝试，不要永远停在只观察、不操作、再确认。'
+            '优先用自然语言描述你实际做什么，通常不必点名技能；是否需要检定由KP和服务端决定。'
+            '接受与角色目标相称的合理虚构风险，可以选择稳妥做法或请求协助。'
         )
         system += identity + ('已有队友正在做的事不必再提一遍；选择互补分工，或明确说明你怎样协助。'
             '若有上一轮审核意见，针对其中的具体异议修改自己的分工；不要只重复被否决的原提案。')
@@ -74,6 +78,7 @@ async def _deliberate_pass(instance: Any, llm_client: Any, seat_runtime: Any = N
         plan['proposals'][uid] = proposal
         result.append({'uid': uid, **proposal, 'confirmed': False})
     # Every AI reviews exactly the same final proposed plan, after all proposals.
+    review_inputs = []
     for row in result:
         uid = row['uid']
         system = ('你是忠于团队的CoC调查员。现在审核全队的拟行动，不执行任何行动。'
@@ -82,12 +87,22 @@ async def _deliberate_pass(instance: Any, llm_client: Any, seat_runtime: Any = N
                   '不得假装人类已经同意。你的确认不代表任何同伴的确认。')
         system += ('仅本轮明确异议需要处理。每人的本轮新提案可以替代其过去的临时计划或前提，'
                    '过去轮次“暂不进入”“必须有人监听”等不是永久命令。可以指出新方案实际风险，'
-                   '但不能仅因它改变旧分工就否决。不要要求调查开始前证明绝对安全。')
+                   '但不能仅因它改变旧分工就否决。不要要求调查开始前证明绝对安全。'
+                   '按角色意愿权衡救援和调查目标，不作消除所有风险的安全审计；'
+                   '异议请给出自己能采取的替代行动，不要只要求队友先完成新的前提。')
         system += f"你的角色是{instance.players[uid].get('character_name', uid)}，你的提案ID是{uid}。"
         lore = await player_lore(instance, uid, '当前场景与队内调查计划') if player_lore is not None else []
         context = await build_player_safe_context(instance, system, lore,
             '待审核计划：\n' + json.dumps({'messages': plan['messages'], 'proposals': plan['proposals']}, ensure_ascii=False), uid)
-        review = await _call(instance, uid, system, context, llm_client, seat_runtime, 1024)
+        review_inputs.append((row, system, context))
+    # Reviews are independent; prepare authorized contexts sequentially, then
+    # use the configured three-request DiceFrame capacity. Await every request
+    # even on failure so another local-model workload cannot overlap leftovers.
+    reviews = await asyncio.gather(*(_call(instance, row['uid'], system, context,
+        llm_client, seat_runtime, 1024) for row, system, context in review_inputs), return_exceptions=True)
+    for (row, _, _), review in zip(review_inputs, reviews):
+        if isinstance(review, BaseException):
+            raise review
         row['confirmed'] = review.get('confirmed') is True
         row['review_reason'] = str(review.get('reason') or '')[:1000]
     return result
@@ -114,4 +129,3 @@ async def _call(instance: Any, uid: str, system: str, context: str, client: Any,
         if generation is not None:
             generation.finish(outcome)
             await generation.close()
-

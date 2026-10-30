@@ -131,6 +131,20 @@ class PartyPlanningService:
                                 'Party discussion invalidated by changed scope fields: %s',
                                 ', '.join(key for key in expected_context
                                           if current_context.get(key) != expected_context[key]))
+                            if current_context.get('players') != expected_context['players']:
+                                before, after = expected_context['players'], current_context['players']
+                                changed = []
+                                for uid in before.keys() | after.keys():
+                                    old, new = before.get(uid, {}), after.get(uid, {})
+                                    for field in old.keys() | new.keys():
+                                        if old.get(field) != new.get(field):
+                                            if field == 'character_sheet':
+                                                a, b = old.get(field, {}), new.get(field, {})
+                                                changed.extend(f'{uid}.{field}.{key}' for key in a.keys() | b.keys()
+                                                               if a.get(key) != b.get(key))
+                                            else:
+                                                changed.append(f'{uid}.{field}')
+                                logging.getLogger(__name__).warning('Changed player field names (no values): %s', ', '.join(changed[:30]))
                             raise ValueError('Investigator knowledge or party decisions changed during discussion')
                         # Merge only this command's owned effects; retain live
                         # background summaries, counters and delivery receipts.
@@ -155,4 +169,3 @@ class PartyPlanningService:
             return {'ok': False, 'code': 'PLAN_REJECTED', 'error': str(exc)}
         except Exception:
             return {'ok': False, 'code': 'PLAN_FAILED', 'error': 'Planning failed; no plan was committed'}
-

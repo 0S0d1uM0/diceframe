@@ -68,6 +68,19 @@ def test_service_projects_npc_roster_without_changing_other_fields(characters_en
     assert "guard-betrayal" not in json.dumps(player)
 
 
+def test_character_reads_normalize_copies_without_mutating_live_planning_state(characters_env):
+    _, key, instance, _, dependencies = characters_env
+    before = deepcopy(instance.players)
+    result = characters.list_characters(dependencies, key, viewer_is_gm=True)
+    assert instance.players == before
+    uid = next(iter(instance.players))
+    single = characters.get_character(dependencies, key, uid)
+    assert instance.players == before
+    result['players'][0]['character_sheet']['hp'] = 999
+    single['character_sheet']['hp'] = 998
+    assert instance.players == before
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "suffix, use_owner",

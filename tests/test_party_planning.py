@@ -184,4 +184,3 @@ async def test_background_usage_and_summary_refresh_do_not_discard_or_get_overwr
     assert result['ok']
     assert session_stats.total_tokens(inst) == 18 and session_stats.total_llm_calls(inst) == 2
     assert narrative_notes.summary(inst)['narrative'] == '后台整理的公开摘要'
-

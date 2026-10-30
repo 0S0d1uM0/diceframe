@@ -528,7 +528,7 @@ def list_characters(
         return {"players": [], "npcs": [], "rule_attrs": []}
     players = [
         # ``has_acted``: after its first action a seat's card / deletion is GM-only.
-        {"user_id": uid, **p, "has_acted": module_hooks.seat_has_acted(inst, uid)}
+        {"user_id": uid, **deepcopy(p), "has_acted": module_hooks.seat_has_acted(inst, uid)}
         for uid, p in inst.players.items()
     ]
     rule_attrs = _get_rule_attrs_for_game(dependencies, inst)
@@ -665,13 +665,12 @@ def get_character(
     )
     if not inst or user_id not in inst.players:
         return None
-    player = inst.get_player(user_id) or {}
+    player = deepcopy(inst.get_player(user_id) or {})
     character_sheet = player.get("character_sheet", {})
     normalize_character_sheet(
         character_sheet, dependencies.rules.load_rule_for_game(inst),
     )
-    inst.set_character_sheet(user_id, character_sheet)
-    return {"user_id": user_id, **(inst.get_player(user_id) or {})}
+    return {"user_id": user_id, **player}
 
 
 async def update_character(

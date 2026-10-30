@@ -68,4 +68,3 @@ def apply_event(instance, uid: str, update: dict) -> None:
         sheet['madness'] = {'type': 'indefinite' if transition['indefinite'] else 'temporary',
             'bout_rounds': rounds, 'duration_hours': hours, 'onset_day': day,
             'symptom': '疯狂发作；由KP裁定非恶意行为，不允许攻击、背叛或偷窃队友'}
-

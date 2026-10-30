@@ -151,4 +151,3 @@ def finalize(rule: Any, draft: dict) -> dict:
             'equipment': [], 'inventory': [], 'key_items': [], 'deceased': False,
             'ruleset_character': {'schema_version': 1, 'draft': deepcopy(draft),
                 'rule_binding': binding}}
-

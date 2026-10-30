@@ -98,4 +98,3 @@ def commit(instance: Any, body: dict) -> dict:
     plan['revision'] += 1
     store(instance, plan)
     return plan
-

@@ -1219,7 +1219,7 @@ async def test_character_api_exposes_rule_creation_hints(web_api):
 
 
 @pytest.mark.asyncio
-async def test_character_list_normalizes_legacy_and_resource_hp(web_api):
+async def test_character_list_normalizes_hp_projection_without_writing_live_state(web_api):
     api, _lorebook, registry, _fake_llm, _worlds_dir = web_api
 
     created = await api.create_game(
@@ -1239,8 +1239,8 @@ async def test_character_list_normalizes_legacy_and_resource_hp(web_api):
     cs = result["players"][0]["character_sheet"]
     assert cs["resources"]["hp"]["current"] == 46
     assert cs["resources"]["hp"]["max"] == 46
-    assert stored["resources"]["hp"]["current"] == 46
-    assert stored["resources"]["hp"]["max"] == 46
+    assert stored["resources"]["hp"]["current"] == 41
+    assert stored["resources"]["hp"]["max"] == 41
 
 
 @pytest.mark.asyncio

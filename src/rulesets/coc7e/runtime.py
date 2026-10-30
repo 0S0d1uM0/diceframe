@@ -219,4 +219,3 @@ class Coc7eRuntime(LegacyRulesetAdapter):
         if batch.get('combat', {}).get('status') == 'ended':
             text.append('本次遭遇结束。')
         return {'action_text': text[0], 'gm_response': '\n'.join(text)}
-
