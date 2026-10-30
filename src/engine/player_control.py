@@ -53,6 +53,21 @@ CONTROL_KEY = "control"
 # 不是本轮范围：多一个模式就多一套权限与结算语义。
 CONTROL_MODES = ("human", "ai", "unclaimed")
 
+
+def preserve_creation_control(source: Mapping[str, Any], character: dict[str, Any]) -> dict[str, Any]:
+    """Carry an explicit creation choice through character normalization.
+
+    This is not a seat transition; the creation service still calls set_control.
+    Character runtimes never own or reinterpret the controller selection.
+    """
+    if CONTROL_KEY not in source:
+        return character
+    mode = source[CONTROL_KEY]
+    if not isinstance(mode, str) or mode not in CONTROL_MODES:
+        raise ValueError('Invalid investigator controller')
+    character[CONTROL_KEY] = mode
+    return character
+
 # 旧存档没有任何控制信息，唯一不猜测的答案就是旧版本行为：真人控制。
 DEFAULT_CONTROL_MODE = "human"
 

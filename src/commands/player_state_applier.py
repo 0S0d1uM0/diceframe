@@ -46,6 +46,8 @@ class PlayerStateApplier:
         rule=None,
         allowed_player_uids: set | None = None,
         health_runtime=None,
+        sanity_runtime=None,
+        vitality_runtime=None,
     ) -> dict[str, frozenset[str]]:
         """应用玩家字段更新，并汇总每个角色本轮真正变化的 live state 域。
 
@@ -60,6 +62,8 @@ class PlayerStateApplier:
         managed_resources = resource_recovery.managed_resources(rule)
 
         def accepts_narrative_delta(cs: dict, key: str, delta: int | float) -> bool:
+            if sanity_runtime is not None and key == 'sanity':
+                return False
             if recovery_policy is None:
                 return True
             if key not in managed_resources or (key not in cs and get_resource(cs, key) is None):
@@ -84,7 +88,9 @@ class PlayerStateApplier:
             cs = instance.get_character_sheet(uid)
             hp_before = int(cs.get("hp", 0) or 0)
             hp_change = pud.get("hp_change")
-            if isinstance(hp_change, (int, float)):
+            if vitality_runtime is not None:
+                vitality_runtime.apply_narrative_vitality(instance, uid, pud)
+            elif isinstance(hp_change, (int, float)):
                 max_hp = cs.get("max_hp", 100)
                 bounded_change = bounded_hp_delta(cs, hp_change)
                 # D8: 按 max_hp 限制单次变更（伤害≤max_hp，治疗≤max_hp//2）
@@ -103,7 +109,7 @@ class PlayerStateApplier:
                     uid,
                     progression_state.round_value(instance),
                 )
-            if "status" in pud:
+            if "status" in pud and vitality_runtime is None:
                 cs["status"] = pud["status"]
             # 物品事件：固定顺序 获得 -> 装备/卸下 -> 使用，再结算其它资源状态。
             domains = self._apply_item_events(instance, uid, cs, pud, rule)
@@ -113,6 +119,8 @@ class PlayerStateApplier:
                 apply_bounded_stat_delta(cs, "mana", mana_change)
                 logger.info("法力变化: %s %+d -> %d", uid, int(mana_change), cs["mana"])
             # 理智值变化
+            if sanity_runtime is not None:
+                sanity_runtime.apply_narrative_sanity(instance, uid, pud)
             san_change = pud.get("san_change")
             if isinstance(san_change, (int, float)) and accepts_narrative_delta(cs, "sanity", san_change):
                 prev = cs.get("sanity", (get_resource(cs, "sanity") or {}).get("current", 99)
@@ -135,7 +143,7 @@ class PlayerStateApplier:
                     full_loss = abs(loss_dice.total)
                 except Exception:
                     full_loss = 6
-                actual_loss = (full_loss + 1) // 2 if san_verdict in ("成功", "大成功") else full_loss
+                actual_loss = (full_loss + 1) // 2 if san_verdict in ("成功", "普通成功", "困难成功", "极难成功", "大成功") else full_loss
                 prev = cs.get("sanity", current_san if recovery_policy is not None else 99)
                 apply_bounded_stat_delta(
                     cs, "sanity", -actual_loss,
@@ -176,6 +184,8 @@ class PlayerStateApplier:
                     if not isinstance(delta, (int, float)) or int(delta) == 0:
                         continue
                     stat_key = str(stat_key)
+                    if vitality_runtime is not None and stat_key in {'hp', 'max_hp'}:
+                        continue
                     if stat_key in {"sanity", "luck"} and not accepts_narrative_delta(cs, stat_key, delta):
                         continue
                     if get_resource(cs, stat_key) is None and stat_key not in cs:
@@ -195,8 +205,9 @@ class PlayerStateApplier:
                     logger.info("规则资源变化: %s %s %+d -> %d", uid, stat_key, int(delta), after)
                 check_resource_triggers(instance, uid, rule)
             # 死亡检测（治疗先苏醒，HP 归零再按规则落昏迷/死亡）
-            wake_character(cs)
-            if sync_death_from_hp(cs, progression_state.round_value(instance), rule):
+            if vitality_runtime is None:
+                wake_character(cs)
+            if vitality_runtime is None and sync_death_from_hp(cs, progression_state.round_value(instance), rule):
                 logger.info("%s 已死亡 (round=%d, hp=%d)",
                             instance.players[uid].get("character_name", uid),
                             progression_state.round_value(instance), cs.get("hp", 0))

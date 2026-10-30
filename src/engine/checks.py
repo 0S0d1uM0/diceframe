@@ -702,13 +702,14 @@ def resolve_check_request(
             common["dice_mechanic"] = "coc_bonus_penalty"
             common["percentile_dice"] = project_percentile_dice(rolls, roll_value, advantage_mode)
         if matched_skill:
-            threshold = int(matched_skill.get("value", 20) or 20)
+            threshold = int(matched_skill.get("value", 20))
             attribute_key = ""
         else:
             attribute_key = str(request.get("attribute") or action.get("selected_attribute") or "int")
             raw_value = int(attributes.get(attribute_key, 10) or 10)
             # CoC 新卡属性本身是百分制；兼容旧卡 3-18 属性并自动换算为百分制。
-            threshold = raw_value if raw_value > 20 else raw_value * 5
+            percentile_attributes = bool(rule and rule.template.get('attribute_scale') == 'percentile')
+            threshold = raw_value if percentile_attributes or raw_value > 20 else raw_value * 5
         threshold = max(1, min(99, threshold + _bounded_modifier(request.get("circumstance_modifier"))))
         verdict = coc_success_level(roll_value, threshold)
         luck = int(character_sheet.get("luck", 0) or 0)

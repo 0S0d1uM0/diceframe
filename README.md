@@ -19,6 +19,8 @@ It brings the Web UI, character sheets, lorebooks, dice checks, state changes, c
 
 ## What It Does
 
+This fork also includes an experimental CoC 7e runtime with validated form creation, consent-based party planning and a basic deterministic combat subset. See the [development guide and current limitations](docs/COC7E_EXPERIMENTAL_zh-CN.md).
+
 - A Web UI organized around Overview, Play, Characters, Content, and Manage. Content contains Content library, World notes, Content packs, and Rules; Manage contains Memory, Logs, Plugins, and Settings. The world gallery, adventure workbench and script import open from the content library.
 - English and Simplified Chinese core UI and documentation; Japanese, German and Russian community translations with English fallback.
 - Solo and multiplayer play, with invite links, waiting states, away players, GM force-advance, SSE updates, and experimental WebRTC player direct connect through one-time link codes.

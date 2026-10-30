@@ -33,6 +33,7 @@ export function useGame(){
   const userId = ref(routeUser())
   const detail = ref<GameDetail|null>(null), players = ref<Player[]>([]), log = ref<LogEntry[]>([]), liveNarration = ref(''), liveStory = ref<StorySequence | null>(null)
   const rulesetStateSignal = ref(0)
+  const partyPlanSignal = ref(0)
   const privateMessages = ref<PrivateMessage[]>([]), tableTalk = ref<TableTalkExchange[]>([]), map = ref<MapData>({locations:[]}), lore = ref<LoreKeywords>({}), loreEntries = ref<LoreEntry[]>([]), loading=ref(false), error=ref('')
   const checkReveals = ref<Record<string, CheckRevealRecord>>({}), diceRevealMode = ref<'auto'|'click'>('auto')
   // The GM closed the player entrance: stop reconnecting/polling until the player retries.
@@ -285,6 +286,7 @@ export function useGame(){
             Number(payload.state_version || 0),
           )
         }
+        if(payload?.type === 'party_plan_changed') partyPlanSignal.value++
         scheduleSilentRefresh()
       }
       next.addEventListener('revoked', (ev: MessageEvent) => {
@@ -336,5 +338,5 @@ export function useGame(){
   // 须按最新条目的 round 判断，否则“GM 思考中”在正式输出落地后残留。
   watch(() => log.value[log.value.length - 1]?.round, (next, prev) => { if (next !== prev) { liveNarration.value = ''; liveStory.value = null } })
   onBeforeUnmount(()=>{connectVersion++;refreshEpoch++;refreshAfterCurrent=false;source?.close();unsubscribePeerEvents?.();revokeMapBackgroundAsset(map.value);clearRefreshTimer();if(pollTimer)clearInterval(pollTimer);if(reconnectTimer)clearTimeout(reconnectTimer)})
-  return {currentGame,userId,actorId,detail,players,player,log,privateMessages,tableTalk,map,lore,loreEntries,loading,error,accessClosed,isGm,refresh,connect,retryAccess,selectGame,liveNarration,liveStory,rulesetStateSignal,checkReveals,diceRevealMode}
+  return {currentGame,userId,actorId,detail,players,player,log,privateMessages,tableTalk,map,lore,loreEntries,loading,error,accessClosed,isGm,refresh,connect,retryAccess,selectGame,liveNarration,liveStory,rulesetStateSignal,partyPlanSignal,checkReveals,diceRevealMode}
 }

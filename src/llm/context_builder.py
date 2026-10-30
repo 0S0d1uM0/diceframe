@@ -7,6 +7,7 @@ from src.engine.modules import game_config
 import json
 import logging
 import os
+import re
 from copy import deepcopy
 from typing import Any, Literal
 
@@ -100,6 +101,26 @@ def _estimate_tokens(text: str) -> int:
     return max(1, cjk + (len(text) - cjk) // 4)
 
 
+def _fact_lines(facts: list[dict], language: str) -> list[str]:
+    previous_decision = localized_text(language, {
+        'zh-CN': '（历史决定，可能已被后续行动取代；不代表本轮已确认计划）',
+        'en': ' (past decision; later actions may supersede it; not consent for this round)',
+        'ja': '（過去の決定。後の行動で変わり得る。今回の同意ではない）',
+        'de': ' (frühere Entscheidung; spätere Handlungen können sie ersetzen; keine Zustimmung für diese Runde)',
+    })
+    return [f"- {fact['content']}{previous_decision if fact.get('type') == 'decision_made' else ''}"
+            for fact in facts if isinstance(fact, dict) and fact.get('content')]
+
+
+def _report_context(role: str, system: str, context: str, parts: list[str], sections: dict[str, int]) -> None:
+    """Log coverage of the final assembled input, without logging private text."""
+    counts = {key: len(parts[sections[key]]) if key in sections else 0
+              for key in ('state', 'summary', 'confirmed', 'lorebook', 'memory', 'history')}
+    logger.info('Context audit: role=%s chars=%d estimated_input_tokens=%d history_rounds=%s section_chars=%s',
+                role, len(system) + len(context), _estimate_tokens(system + context),
+                re.findall(r'\[Round (\d+)\]', context), counts)
+
+
 def _truncate(text: str, max_chars: int) -> str:
     if len(text) <= max_chars:
         return text
@@ -124,7 +145,8 @@ def _is_key_round(entry: dict) -> bool:
         return True
     return False
 
-def _format_history(log: list[dict], max_chars: int, language: str = "zh-CN") -> str:
+def _format_history(log: list[dict], max_chars: int, language: str = "zh-CN", *,
+                    speaker_names: dict[str, str] | None = None) -> str:
     MIN_KEEP = 5
     if not log:
         return ""
@@ -140,9 +162,15 @@ def _format_history(log: list[dict], max_chars: int, language: str = "zh-CN") ->
     selected: dict[int, str] = {}
     used = 0
 
+    def action_text(action: dict) -> str:
+        text = str(action.get('text') or '')
+        uid = str(action.get('user_id') or '')
+        name = str(action.get('character_name') or (speaker_names or {}).get(uid) or uid)
+        return f'{name}: {text}' if name else text
+
     def _entry_full(entry: dict) -> str:
         actions_text = "; ".join(
-            a.get("text", "") for a in entry.get("actions", [])
+            action_text(a) for a in entry.get("actions", [])
             if a.get("user_id") != "system"
         )
         gm_text = sanitize_narration(entry.get("gm_response", ""))
@@ -158,7 +186,7 @@ def _format_history(log: list[dict], max_chars: int, language: str = "zh-CN") ->
 
     def _entry_slim(entry: dict) -> str:
         actions_text = "; ".join(
-            a.get("text", "") for a in entry.get("actions", [])
+            action_text(a) for a in entry.get("actions", [])
             if a.get("user_id") != "system"
         )
         gm_text = sanitize_narration(entry.get("gm_response", ""))
@@ -697,11 +725,7 @@ async def build_context(
         summary_section_parts.append(_truncate(summary, budget_summary))
     key_facts = module_hooks.narrative_view(instance)["key_facts"]
     if key_facts:
-        facts_lines = [
-            f"- {f.get('content', '')}"
-            for f in key_facts
-            if isinstance(f, dict) and f.get("content")
-        ]
+        facts_lines = _fact_lines(key_facts, language)
         if facts_lines:
             facts_text = _truncate("\n".join(facts_lines), budget_summary)
             summary_section_parts.append(facts_text)
@@ -857,7 +881,8 @@ async def build_context(
     remaining = max(0, max_total - used_chars - len(player_message) - 200)
     history_budget = min(budget_history_base + max(0, remaining - budget_history_base), max_total // 2)
     history_budget = max(history_budget, budget_history_base)
-    history = _format_history(history_entries, history_budget, language)
+    history = _format_history(history_entries, history_budget, language,
+        speaker_names={uid: str(row.get('character_name') or uid) for uid, row in getattr(instance, 'players', {}).items()})
     if history:
         parts.append(localized_text(language, {"en": "## Conversation History", "zh-CN": "【对话历史】", "ja": "## 会話履歴", "de": "## Gesprächsverlauf"}) + f"\n{history}")
         sec_idx["history"] = len(parts) - 1
@@ -930,6 +955,7 @@ async def build_context(
         "Context 拼接完成: total_chars=%d, est_tokens=%d, max=%d",
         len(context), _estimate_tokens(context), max_total,
     )
+    _report_context('gm', gm_prompt_filled, context, parts, sec_idx)
     return context
 
 
@@ -1069,11 +1095,7 @@ async def build_player_safe_context(
     narrative = sanitize_narration(str((module_hooks.narrative_view(instance)["summary"] or {}).get("narrative") or ""))
     if narrative:
         summary_parts.append(narrative)
-    facts = [
-        f"- {fact.get('content', '')}"
-        for fact in (module_hooks.narrative_view(instance)["key_facts"] or [])
-        if isinstance(fact, dict) and fact.get("content")
-    ]
+    facts = _fact_lines(module_hooks.narrative_view(instance)["key_facts"] or [], language)
     if facts:
         summary_parts.append("\n".join(facts))
     if summary_parts:
@@ -1140,7 +1162,8 @@ async def build_player_safe_context(
         budget_history_base + max(0, remaining - budget_history_base),
         max_total // 2,
     )
-    history = _format_history(instance.log or [], history_budget, language)
+    history = _format_history(instance.log or [], history_budget, language,
+        speaker_names={uid: str(row.get('character_name') or uid) for uid, row in instance.players.items()})
     if history:
         parts.append(localized_text(language, {
             "en": "## Public Conversation History",
@@ -1165,4 +1188,6 @@ async def build_player_safe_context(
 
     if _context_total_len(parts) > max_total:
         _shrink_to_window(parts, sec_idx, max_total)
-    return _SEP.join(parts)
+    context = _SEP.join(parts)
+    _report_context('player:' + actor_uid, gm_prompt_filled, context, parts, sec_idx)
+    return context

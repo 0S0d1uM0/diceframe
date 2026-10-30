@@ -16,6 +16,7 @@ export interface RulesetPlayExtension {
   campaign: Component | null
   combat: Component | null
   copy: (language: string) => RulesetPlayCopy
+  inlineCombat?: boolean
 }
 
 export interface RulesetAdvancementExtension {
@@ -24,10 +25,15 @@ export interface RulesetAdvancementExtension {
 }
 
 const loaders: Record<string, ExperienceLoader> = {
+  coc7e: () => import('./coc7e/Coc7eCharacterBuilder.vue'),
   dnd2024: () => import('./dnd2024/create/Dnd2024CharacterBuilder.vue'),
 }
 const components = new Map<string, Component>()
 const playLoaders: Record<string, Partial<Record<RulesetPlayTool, ComponentLoader>>> = {
+  'core:coc7e': {
+    campaign: () => import('./coc7e/Coc7eCampaignPanel.vue'),
+    combat: () => import('./coc7e/Coc7eCombatPanel.vue'),
+  },
   'core:dnd2024': {
     campaign: () => import('./dnd2024/campaign/Dnd2024CampaignPanel.vue'),
     combat: () => import('./dnd2024/combat/Dnd2024CombatPanel.vue'),
@@ -68,9 +74,12 @@ export function resolveRulesetExperience(profile: string): Component | null {
 export function resolveRulesetPlayExtension(runtimeId: string): RulesetPlayExtension | null {
   if (!playLoaders[runtimeId]) return null
   return {
+    inlineCombat: runtimeId === 'core:coc7e',
     campaign: resolvePlayComponent(runtimeId, 'campaign'),
     combat: resolvePlayComponent(runtimeId, 'combat'),
-    copy: language => language.startsWith('zh') ? {
+    copy: language => runtimeId === 'core:coc7e' ? (language.startsWith('zh') ? {
+      menu: 'CoC工具', campaign: '战役', combat: '战斗工具', title: 'CoC工具',
+    } : { menu: 'CoC tools', campaign: 'Campaign', combat: 'Combat', title: 'CoC tools' }) : language.startsWith('zh') ? {
       menu: 'DND5E工具', campaign: '冒险与战役', combat: '战斗工具', title: 'DND5E工具',
     } : {
       menu: 'DND5E Tools', campaign: 'Adventure & campaign', combat: 'Combat tools', title: 'DND5E Tools',

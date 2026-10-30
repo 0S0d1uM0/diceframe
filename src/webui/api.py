@@ -42,6 +42,7 @@ from src.engine.world_template import load_world_template
 from src.content_modules.projection import ContentProjectionService
 from src.webui.services import adventures, asr, avatars, bot_access, bot_extensions, character_cards, characters, content, content_pack_maps, game_controls, game_lifecycle, game_master, game_media, game_packages, game_queries, generated_images, generation, knowledge, kp_questions, logs, lorebooks, map_backgrounds, maps, tavern, turns, worlds, rules, ruleset_advancement, ruleset_builder, ruleset_gameplay, ruleset_rest, plugins, modules, scene_images, speech, system, tunnel, announcements, assistant, hub, legal, manual_rolls, check_reveals, seat_tokens, storytelling
 from src.webui.services import lorebook_usage
+from src.webui.services.party_planning import PartyPlanningService, PlanningDependencies
 from src.webui.services import combat_extension as combat_extension_service
 from src.webui.services import adventure_runtime
 from src.game_profiles.service import ProfileService, ProfileDependencies
@@ -800,6 +801,7 @@ class WebAPI:
             load_rule_for_game=self._load_rule_for_game,
             character_gen_max_tokens=self.character_gen_max_tokens,
             text_gen_max_tokens=self.text_gen_max_tokens,
+            ruleset_registry=self._ruleset_registry,
         )
         self._rule_dependencies = rules.RuleDependencies(
             rules_dir=self._rules_dir,
@@ -889,6 +891,12 @@ class WebAPI:
                 answer_question=kp_answerer if callable(kp_answerer) else None,
             )
         )
+        self._party_planning = PartyPlanningService(PlanningDependencies(
+            get_instance=self.get_game_instance,
+            save_instance=self._reg.save,
+            load_rule=self._load_rule_for_game,
+            deliberate=getattr(self._handler, 'deliberate_party', None),
+        ))
         self._generated_images = generated_images.GeneratedImageService(
             generated_images.GeneratedImageDependencies(
                 imagegen=imagegen_service,
@@ -2012,6 +2020,12 @@ class WebAPI:
         return await self._kp_questions.ask(
             game_key, actor_uid, question, visibility,
         )
+
+    def party_plan(self, game_key: str, viewer) -> dict:
+        return self._party_planning.read(game_key, viewer)
+
+    async def update_party_plan(self, game_key: str, viewer, operation: str, body) -> dict:
+        return await self._party_planning.update(game_key, viewer, operation, body)
 
     async def resolve_luck_and_continue(
         self,

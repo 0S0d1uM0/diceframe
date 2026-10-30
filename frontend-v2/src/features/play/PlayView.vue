@@ -29,6 +29,7 @@ import DirectorProposalCard from '@/components/play/DirectorProposalCard.vue'
 import CombatMessageComposer from '@/components/play/CombatMessageComposer.vue'
 import KpQuestionDialog from '@/components/play/KpQuestionDialog.vue'
 import TableTalkFeed from '@/components/play/TableTalkFeed.vue'
+import PartyPlanningPanel from '@/features/play/party/PartyPlanningPanel.vue'
 import EconomyProposalCard from '@/components/play/EconomyProposalCard.vue'
 import GmChargeComposer from '@/features/play/economy/GmChargeComposer.vue'
 import GameSidebar from '@/components/GameSidebar.vue'
@@ -89,6 +90,8 @@ const { confirm } = useConfirm()
 const { locale, setLocale, t } = useLocale()
 const help = ref(false), ruleMeta = ref<RuleMeta>({}), preview = ref(false), delegate = ref(false), cards = ref<CharacterCard[]>([]), showCards = ref(false), health = ref<HealthResponse>({ events: [] })
 const showKpQuestion = ref(false)
+const partyPlanningEnabled = ref(false)
+watch(() => game.currentGame.value, () => { partyPlanningEnabled.value = false })
 const checkModeTool = ref<{ open: () => void } | null>(null)
 const gmToolbar = ref<{ openSection: (section: 'todo' | 'party' | 'scene' | 'rules' | 'settings') => void } | null>(null)
 const checkModeStatus = ref({ pendingCount: 0, error: '' })
@@ -303,7 +306,8 @@ const hasRulesAwareCharacters = computed(() => (
 ))
 const hasCampaignGuidance = computed(() => Boolean(
   game.detail.value?.ruleset_runtime?.capabilities?.session_zero
-  || game.detail.value?.ruleset_runtime?.capabilities?.tutorial_coach,
+  || game.detail.value?.ruleset_runtime?.capabilities?.tutorial_coach
+  || resolveRulesetPlayExtension(String(game.detail.value?.ruleset_runtime?.id || ''))?.campaign,
 ))
 type RulesetTool = 'campaign' | 'combat'
 const activeRulesetTool = ref<RulesetTool | ''>('')
@@ -320,6 +324,10 @@ const rulesetToolCopy = computed(() => (
     ?.copy(String(locale.value))
   || { menu: 'Ruleset tools', campaign: 'Campaign', combat: 'Combat', title: 'Ruleset tools' }
 ))
+const inlineCombatPanel = computed(() => {
+  const extension = resolveRulesetPlayExtension(String(game.detail.value?.ruleset_runtime?.id || ''))
+  return extension?.inlineCombat ? extension.combat : null
+})
 function openRulesetTool(tool: RulesetTool): void {
   activeRulesetTool.value = tool
 }
@@ -1554,11 +1562,15 @@ function onPlayKeydown(event: KeyboardEvent) {
         <p v-if="tokenBudgetHint" class="token-budget-hint" aria-live="polite">{{ tokenBudgetHint }}</p>
 
         <TableTalkFeed :exchanges="game.tableTalk.value" />
+        <PartyPlanningPanel v-if="!runReadOnly && !rulesetCombatActive" :game-key="game.currentGame.value" :revision="`${game.detail.value?.round_number}:${game.detail.value?.state}:${game.partyPlanSignal.value}`" @refresh="game.refresh()" @enabled="partyPlanningEnabled = $event" />
 
         <RunFinalePanel v-if="runReadOnly"
           :game-key="game.currentGame.value" :revision="`${game.detail.value.run_lifecycle?.status}:${game.detail.value.run_lifecycle?.id}:${game.detail.value.run_lifecycle?.revision || 0}`" :lifecycle-status="game.detail.value.run_lifecycle?.status" :is-gm="false" />
+        <component :is="inlineCombatPanel" v-else-if="rulesetCombatActive && inlineCombatPanel"
+          :game-key="game.currentGame.value" :actor-id="actorId" :is-gm="game.isGm.value"
+          :refresh-key="rulesetRefreshKey" @refresh="refreshRulesetPanels" />
         <CombatMessageComposer
-          v-else-if="rulesetCombatActive && rulesetGameplay"
+          v-else-if="rulesetCombatActive && rulesetGameplay && !inlineCombatPanel"
           :game-key="game.currentGame.value"
           :gameplay="rulesetGameplay"
           @refresh="refreshRulesetPanels"
@@ -1604,7 +1616,7 @@ function onPlayKeydown(event: KeyboardEvent) {
         </CombatMessageComposer>
 
         <ActionComposer
-          v-else
+          v-else-if="!partyPlanningEnabled"
           ref="actionComposer"
           :game-key="game.currentGame.value"
           :user-id="actorId"

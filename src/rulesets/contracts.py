@@ -29,6 +29,34 @@ CharacterLifecycleMode = Literal["legacy", "rules_aware"]
 
 
 @runtime_checkable
+class CharacterDraftGenerationRuntime(Protocol):
+    """A model fills the same validated draft used by the manual builder."""
+
+    def character_draft_prompt(self, rule: Any) -> str: ...
+
+
+@runtime_checkable
+class NarrativeSanityRuntime(Protocol):
+    """Rules own sanity events; generic player tags cannot bypass the owner."""
+
+    def apply_narrative_sanity(self, instance: Any, uid: str, update: dict[str, Any]) -> None: ...
+
+
+@runtime_checkable
+class NarrativeVitalityRuntime(Protocol):
+    """Own narrative injuries and consciousness instead of legacy HP mutation."""
+
+    def apply_narrative_vitality(self, instance: Any, uid: str, update: dict[str, Any]) -> None: ...
+
+
+@runtime_checkable
+class AutomaticLuckDecisionRuntime(Protocol):
+    """A runtime may decide post-roll Luck only for AI-controlled seats."""
+
+    def automatic_luck_decision(self, instance: Any, rule: Any, check: dict[str, Any]) -> bool | None: ...
+
+
+@runtime_checkable
 class CheckModePolicyRuntime(Protocol):
     """Runtime owns supported dice modes, their lifetime and public previews."""
 

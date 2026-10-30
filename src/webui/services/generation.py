@@ -39,6 +39,7 @@ class GenerationDependencies:
     load_rule_for_game: Callable[[Any], RuleSystem | None]
     character_gen_max_tokens: int
     text_gen_max_tokens: int
+    ruleset_registry: Any = None
 
 
 def _model_list_url(base_url: str, api_format: str = "openai") -> str:
@@ -375,6 +376,25 @@ async def generate_character(
             if inst:
                 resolved_language = normalize_language(language or getattr(inst, "language", DEFAULT_LANGUAGE))
                 rule = rule or dependencies.load_rule_for_game(inst)
+        if rule is not None and dependencies.ruleset_registry is not None:
+            from src.rulesets.contracts import CharacterDraftGenerationRuntime
+            runtime = dependencies.ruleset_registry.resolve(rule.template)
+            if isinstance(runtime, CharacterDraftGenerationRuntime):
+                response = await dependencies.llm_client.call(
+                    runtime.character_draft_prompt(rule), str(prompt),
+                    max_tokens=dependencies.character_gen_max_tokens, temperature=0.5,
+                )
+                text = str(getattr(response, 'content', '') or getattr(response, 'narration', '') or '').strip()
+                if text.startswith('```'):
+                    text = '\n'.join(text.splitlines()[1:-1])
+                draft = json.loads(text)
+                from src.webui.ruleset_draft_validation import validate_draft_shape
+                draft = validate_draft_shape(draft)
+                errors = runtime.validate_character(rule, draft)
+                if errors:
+                    return {'ok': False, 'code': 'INVALID_CHARACTER_DRAFT', 'draft': draft,
+                            'errors': errors, 'error': '; '.join(errors)}
+                return {'ok': True, 'draft': draft, 'character': runtime.finalize_character(rule, draft)}
         data = await creator.generate_character(
             dependencies.llm_client,
             prompt,

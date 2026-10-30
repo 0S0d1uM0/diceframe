@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from aiohttp import web
 from src.webui.routes.game_lorebooks import api_game_lorebooks
+from src.webui.routes.party_planning import register_party_planning
 
 from src.engine.game_instance import MAX_SAVE_PACKAGE_BYTES
 
@@ -117,6 +118,7 @@ async def _read_save_upload(reader) -> bytes:
 
 
 def register_games(app: web.Application) -> None:
+    register_party_planning(app)
     from src.webui.routes.resource_recovery import register as register_resource_recovery
     register_resource_recovery(app)
     from src.webui.routes.run_story import register as register_run_story

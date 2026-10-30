@@ -1,0 +1,499 @@
+{
+  "extends": "intents_base",
+  "rule_version": "0.1",
+  "rule_id": "coc7e",
+  "scene_image": {
+    "kind": "builtin",
+    "id": "freeform_coc"
+  },
+  "rule_name": "CoC 7e（开发中）",
+  "description": "独立CoC 7e入口：表格建卡、队内讨论和全员确认。完整战斗、追逐及魔法自动化正在开发。旧轻量规则不受影响。",
+  "mechanics": "coc7e_core",
+  "ruleset_level": "assisted",
+  "attributes": [
+    {
+      "key": "str",
+      "name": "力量",
+      "min": 15,
+      "max": 90
+    },
+    {
+      "key": "con",
+      "name": "体质",
+      "min": 15,
+      "max": 90
+    },
+    {
+      "key": "siz",
+      "name": "体型",
+      "min": 40,
+      "max": 90
+    },
+    {
+      "key": "dex",
+      "name": "敏捷",
+      "min": 15,
+      "max": 90
+    },
+    {
+      "key": "app",
+      "name": "外貌",
+      "min": 15,
+      "max": 90
+    },
+    {
+      "key": "int",
+      "name": "智力",
+      "min": 40,
+      "max": 90
+    },
+    {
+      "key": "pow",
+      "name": "意志",
+      "min": 15,
+      "max": 90
+    },
+    {
+      "key": "edu",
+      "name": "教育",
+      "min": 40,
+      "max": 90
+    }
+  ],
+  "special_stats": [
+    {
+      "key": "sanity",
+      "name": "理智值",
+      "max": 99,
+      "description": "通常以 POW 为初始值；接触恐怖事物会降低，归零可能永久疯狂。"
+    },
+    {
+      "key": "luck",
+      "name": "幸运值",
+      "max": 99,
+      "description": "可按房规消耗幸运，将失败补成成功或降低后果。"
+    }
+  ],
+  "attribute_points": 460,
+  "attr_hint": "CoC 7版风格使用百分制属性。STR/CON/DEX/APP/POW 通常为 3d6×5，SIZ/INT/EDU 通常为 (2d6+6)×5；快速建卡可按总和约 460 分配。",
+  "dice_system": "d100",
+  "check_mechanic": {
+    "dice": "d100",
+    "comparison": "roll_lte_target",
+    "critical": {
+      "success": 1,
+      "failure_rule": "coc7e"
+    },
+    "advantage": {
+      "type": "coc_bonus_penalty",
+      "allow_explicit": true,
+      "assistance_grants": ""
+    }
+  },
+  "combat_model": "narrative",
+  "growth_system": "skill_improvement",
+  "skill_improvement": {
+    "version": 1,
+    "success": "above_skill_or_96",
+    "gain": "d10",
+    "cap": 99,
+    "excluded_skill_ids": [
+      "cthulhu_mythos"
+    ],
+    "identity_aliases": {
+      "cthulhu_mythos": [
+        "cthulhu_mythos",
+        "克苏鲁神话",
+        "Cthulhu Mythos",
+        "クトゥルフ神話",
+        "Cthulhu-Mythos",
+        "Мифы Ктулху",
+        "Mitos de Cthulhu"
+      ]
+    }
+  },
+  "bonus_dice": true,
+  "resource_recovery": {
+    "version": 1,
+    "policy": "coc7e_style",
+    "luck_recovery": "check"
+  },
+  "pushed_rolls": true,
+  "hp_formula": "max((con + siz) // 10, 1)",
+  "valid_qualities": [
+    "common"
+  ],
+  "max_skills": 99,
+  "skill_point_total": 320,
+  "max_skill_value": 99,
+  "skill_point_spend_mode": "above_base",
+  "skill_mode": "point_buy",
+  "skill_hint": "CoC 技能按 d100 阈值理解：普通成功≤技能值，困难成功≤一半，极难成功≤五分之一。玩家可新增自定义技能；开卡建议单技能不超过 85，技能点只计算超过基础值的部分。",
+  "currency": "美元",
+  "currency_system": {
+    "schema_version": 2,
+    "base_unit": "cent",
+    "display_unit": "dollar",
+    "units": [
+      {
+        "id": "dollar",
+        "name": "美元",
+        "symbol": "$",
+        "rate": 100
+      },
+      {
+        "id": "cent",
+        "name": "美分",
+        "rate": 1
+      }
+    ]
+  },
+  "item_categories": {
+    "equipment": [
+      "左轮手枪",
+      "手枪",
+      "步枪",
+      "猎枪",
+      "军刀",
+      "手电筒",
+      "刀",
+      "霰弹枪",
+      "冲锋枪",
+      "砍刀",
+      "棍棒",
+      "警棍",
+      "Revolver",
+      "Pistol",
+      "Rifle",
+      "Shotgun",
+      "Saber",
+      "Flashlight",
+      "Knife",
+      "SMG",
+      "Machete",
+      "Club",
+      "Baton",
+      "リボルバー",
+      "拳銃",
+      "ライフル",
+      "ショットガン",
+      "サーベル",
+      "懐中電灯",
+      "ナイフ",
+      "サブマシンガン",
+      "マチェーテ",
+      "警棒"
+    ],
+    "consumable": [
+      "急救包",
+      "绷带",
+      "子弹",
+      "汽油",
+      "威士忌",
+      "香烟",
+      "火柴",
+      "绳索",
+      "干粮",
+      "水壶",
+      "镇定剂",
+      "吗啡",
+      "First Aid Kit",
+      "Bandage",
+      "Bullets",
+      "Gasoline",
+      "Whiskey",
+      "Cigarettes",
+      "Matches",
+      "Rope",
+      "Rations",
+      "Canteen",
+      "Sedative",
+      "Morphine",
+      "応急処置キット",
+      "包帯",
+      "弾丸",
+      "ガソリン",
+      "ウイスキー",
+      "煙草",
+      "マッチ",
+      "ロープ",
+      "食料",
+      "水筒",
+      "鎮静剤",
+      "モルヒネ"
+    ],
+    "misc": [
+      "钥匙",
+      "笔记本",
+      "照片",
+      "地图",
+      "书籍",
+      "护符",
+      "证件",
+      "怀表",
+      "放大镜",
+      "指南针",
+      "汽车",
+      "自行车",
+      "Key",
+      "Notebook",
+      "Photograph",
+      "Map",
+      "Book",
+      "Amulet",
+      "ID",
+      "Pocket Watch",
+      "Magnifying Glass",
+      "Compass",
+      "Car",
+      "Bicycle",
+      "鍵",
+      "ノート",
+      "写真",
+      "地図",
+      "本",
+      "お守り",
+      "身分証",
+      "懐中時計",
+      "虫眼鏡",
+      "コンパス",
+      "自動車",
+      "自転車"
+    ]
+  },
+  "skill_base_values": {
+    "侦查": 25,
+    "聆听": 20,
+    "图书馆使用": 20,
+    "心理学": 10,
+    "话术": 5,
+    "说服": 10,
+    "恐吓": 15,
+    "魅惑": 15,
+    "潜行": 20,
+    "追踪": 10,
+    "急救": 30,
+    "医学": 1,
+    "精神分析": 1,
+    "神秘学": 5,
+    "克苏鲁神话": 0,
+    "历史": 5,
+    "博物学": 10,
+    "人类学": 1,
+    "考古学": 1,
+    "会计": 5,
+    "法律": 5,
+    "外语": 1,
+    "母语": 0,
+    "格斗（斗殴）": 25,
+    "闪避": 0,
+    "射击（手枪）": 20,
+    "射击（步枪／霰弹枪）": 25,
+    "投掷": 20,
+    "汽车驾驶": 20,
+    "机械维修": 10,
+    "电气维修": 10,
+    "锁匠": 1,
+    "生存": 10,
+    "信用评级": 0,
+    "艺术／手艺（摄影）": 5,
+    "估价": 5
+  },
+  "classes": [
+    {
+      "id": "private_detective",
+      "name": "私家侦探",
+      "description": "通过调查员表格分配职业技能与兴趣点。",
+      "starter_equipment": []
+    },
+    {
+      "id": "scholar",
+      "name": "学者",
+      "description": "通过调查员表格分配职业技能与兴趣点。",
+      "starter_equipment": []
+    },
+    {
+      "id": "doctor",
+      "name": "医生",
+      "description": "通过调查员表格分配职业技能与兴趣点。",
+      "starter_equipment": []
+    },
+    {
+      "id": "journalist",
+      "name": "记者",
+      "description": "通过调查员表格分配职业技能与兴趣点。",
+      "starter_equipment": []
+    }
+  ],
+  "skill_pools": {
+    "private_detective": [
+      "spot_hidden",
+      "psychology",
+      "fast_talk",
+      "law",
+      "library_use",
+      "photography",
+      "locksmith",
+      "track",
+      "credit_rating"
+    ],
+    "scholar": [
+      "library_use",
+      "history",
+      "foreign_language",
+      "own_language",
+      "occult",
+      "archaeology",
+      "anthropology",
+      "persuade",
+      "credit_rating"
+    ],
+    "doctor": [
+      "first_aid",
+      "medicine",
+      "psychology",
+      "psychoanalysis",
+      "foreign_language",
+      "library_use",
+      "persuade",
+      "natural_world",
+      "credit_rating"
+    ],
+    "journalist": [
+      "spot_hidden",
+      "listen",
+      "fast_talk",
+      "persuade",
+      "psychology",
+      "library_use",
+      "photography",
+      "foreign_language",
+      "credit_rating"
+    ]
+  },
+  "gm_prompt_appendix": "你是CoC守密人，主持合作调查恐怖团。遵守服务端检定与已确认世界事实。玩家提交的行动已在独立队内讨论中全员确认；不要将提案、问题或假设当成既成行动或事实。只结算已提交的行动。不替调查员作选择。核心线索失败应产生合理代价和替代路径。AI队友忠于团队，不背叛、不偷窃、不伤害同伴。禁止未经规则结算擅自授予技能、幸运、SAN或物品。禁止随意改写模组核心真相。重要NPC有动机，时间与行动后果保持一致。战斗必须走服务端CoC战斗流程；未收到权威事件，不要伪造已完成的攻击或伤害结算。 理智检定必须使用SAN_CHECK:玩家ID:成功损失/失败损失，例如SAN_CHECK:玩家ID:0/1d6。不得写单一损失骰或通过SAN/STAT直接扣减或恢复理智。单次失去5点以上的INT判定、一天累计损失与疯狂由服务端执行；你依据结算后的状态描写，不能发明骰点。 叙事连续性：历史决定不是永久限制，已解决结果不能重置。玩家行动是尝试，NPC猜测和角色推论不得自动升级为客观真相。成功须兑现与当前目标有关的实际结果；核心线索的获取遵守模组条件，不反复要求检定已确认的信息。不要把每次失败都变成一个新的前置机关。没有实质条件变化时，不用普通重掷循环同一失败尝试；应改换方法或使用既有孤注一掷流程。自愿配合的普通交谈、交接物品、经过无阻碍的门，不强行设置技能关卡。限时情节须随行动耗时推进并触发到时事件，不得多轮无限逼近同一时刻。目标完成后收束当前事件；常规团按结束条件收团，无尽团另起自然后果，不复活已解决的同一障碍。",
+  "difficulty_instructions": {
+    "轻松": "调查线索充足，战斗可避免，理智损失减半。",
+    "标准": "线索需要拼凑，战斗有风险，理智损失正常。",
+    "硬核": "线索稀缺且可能误导，战斗极易致死，理智损失加倍。"
+  },
+  "rule_schema_version": 2,
+  "default_locale": "zh-CN",
+  "locale_schema_version": 1,
+  "skills": {
+    "spot_hidden": {
+      "name": "侦查"
+    },
+    "listen": {
+      "name": "聆听"
+    },
+    "library_use": {
+      "name": "图书馆使用"
+    },
+    "psychology": {
+      "name": "心理学"
+    },
+    "fast_talk": {
+      "name": "话术"
+    },
+    "persuade": {
+      "name": "说服"
+    },
+    "intimidate": {
+      "name": "恐吓"
+    },
+    "charm": {
+      "name": "魅惑"
+    },
+    "stealth": {
+      "name": "潜行"
+    },
+    "track": {
+      "name": "追踪"
+    },
+    "first_aid": {
+      "name": "急救"
+    },
+    "medicine": {
+      "name": "医学"
+    },
+    "psychoanalysis": {
+      "name": "精神分析"
+    },
+    "occult": {
+      "name": "神秘学"
+    },
+    "cthulhu_mythos": {
+      "name": "克苏鲁神话"
+    },
+    "history": {
+      "name": "历史"
+    },
+    "natural_world": {
+      "name": "博物学"
+    },
+    "anthropology": {
+      "name": "人类学"
+    },
+    "archaeology": {
+      "name": "考古学"
+    },
+    "accounting": {
+      "name": "会计"
+    },
+    "law": {
+      "name": "法律"
+    },
+    "foreign_language": {
+      "name": "外语"
+    },
+    "own_language": {
+      "name": "母语"
+    },
+    "fighting_brawl": {
+      "name": "格斗（斗殴）"
+    },
+    "dodge": {
+      "name": "闪避"
+    },
+    "firearms_handgun": {
+      "name": "射击（手枪）"
+    },
+    "firearms_rifle": {
+      "name": "射击（步枪／霰弹枪）"
+    },
+    "throw": {
+      "name": "投掷"
+    },
+    "drive": {
+      "name": "汽车驾驶"
+    },
+    "mechanical_repair": {
+      "name": "机械维修"
+    },
+    "electrical_repair": {
+      "name": "电气维修"
+    },
+    "locksmith": {
+      "name": "锁匠"
+    },
+    "survival": {
+      "name": "生存"
+    },
+    "credit_rating": {
+      "name": "信用评级"
+    },
+    "photography": {
+      "name": "艺术／手艺（摄影）"
+    },
+    "appraise": {
+      "name": "估价"
+    }
+  },
+  "runtime": {
+    "id": "core:coc7e",
+    "minimum_version": 1
+  },
+  "party_planning": true,
+  "attribute_scale": "percentile"
+}

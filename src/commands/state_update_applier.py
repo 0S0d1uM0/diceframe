@@ -27,6 +27,8 @@ from src.rulesets.contracts import (
     CharacterItemPreparationRuntime,
     CharacterStateReconciliationRuntime,
     NarrativeHealthRuntime,
+    NarrativeSanityRuntime,
+    NarrativeVitalityRuntime,
 )
 from src.engine.economy import queue_proposal
 from src.engine.modules import checks, progression_state
@@ -152,6 +154,8 @@ class StateUpdateApplier:
                 rule=rule,
                 allowed_player_uids=allowed_player_uids,
                 health_runtime=health_runtime,
+                sanity_runtime=runtime if isinstance(runtime, NarrativeSanityRuntime) else None,
+                vitality_runtime=runtime if isinstance(runtime, NarrativeVitalityRuntime) else None,
             ).items()
         }
 

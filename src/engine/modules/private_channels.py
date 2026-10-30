@@ -49,6 +49,17 @@ def replace_table_talk(instance: Any, value: Any) -> None:
     get_module_state(instance, MODULE_NAME)["table_talk"] = value if isinstance(value, list) else []
 
 
+def party_plan(instance: Any) -> Any:
+    """Optional revisioned discussion payload, interpreted by party_planning."""
+    from copy import deepcopy
+    return deepcopy(get_module_state(instance, MODULE_NAME).get('party_plan'))
+
+
+def replace_party_plan(instance: Any, value: dict) -> None:
+    from copy import deepcopy
+    get_module_state(instance, MODULE_NAME)['party_plan'] = deepcopy(value)
+
+
 def remove_table_talk_exchange(instance: Any, exchange_id: str) -> None:
     """Undo a failed append/save while retaining the existing list object."""
     entries = table_talk(instance)
@@ -58,6 +69,7 @@ def remove_table_talk_exchange(instance: Any, exchange_id: str) -> None:
 def reset(instance: Any) -> None:
     private_log(instance).clear()
     table_talk(instance).clear()
+    get_module_state(instance, MODULE_NAME).pop('party_plan', None)
 
 
 def read_state(instance: Any, kind: str) -> Any:

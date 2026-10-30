@@ -62,7 +62,7 @@ class HostedCombatChooser:
                     response = await asyncio.wait_for(generation.client.call(
                         system, context, max_tokens=96, temperature=0.3,
                     ), timeout=min(20, remaining))
-                    raw = str(response.narration or "")
+                    raw = str(getattr(response, 'content', '') or response.narration or "")
                     if len(raw) <= 256:
                         value = json.loads(raw)
                         if isinstance(value, dict) and set(value) == {"choice_id"}:

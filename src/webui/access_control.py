@@ -534,6 +534,12 @@ class WebAccessControl:
         if len(parts) < 4:
             return ""
         tail = parts[3]
+        if tail == 'party-plan':
+            if request.method == 'GET' and len(parts) == 4:
+                return 'seat'
+            if request.method == 'POST' and len(parts) == 5 and parts[4] in {'message', 'propose', 'confirm', 'generate', 'commit'}:
+                return 'seat'
+            return ''
         if tail == "recovery":
             if request.method == "GET" and len(parts) == 4:
                 return "seat"

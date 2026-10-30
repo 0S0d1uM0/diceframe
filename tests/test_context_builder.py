@@ -91,6 +91,29 @@ class TestCompactStateView:
 
 
 class TestFormatHistory:
+    def test_context_coverage_logs_counts_and_rounds_without_private_prompt_text(self, caplog):
+        from src.llm.context_builder import _report_context
+        parts = ['secret personal perception', '[Round 3] public result']
+        with caplog.at_level(logging.INFO, logger='trpg'):
+            _report_context('player:a', 'secret Keeper policy', '\n'.join(parts), parts,
+                            {'memory': 0, 'history': 1})
+        assert "history_rounds=['3']" in caplog.text
+        assert 'estimated_input_tokens=' in caplog.text
+        assert 'secret personal perception' not in caplog.text and 'secret Keeper policy' not in caplog.text
+
+    def test_history_preserves_speaker_attribution_for_distinct_investigators(self):
+        log = [{'round': 1, 'actions': [{'user_id': 'a', 'text': '我守门'},
+                {'user_id': 'b', 'text': '我问玛拉'}], 'gm_response': '各自开始调查。'}]
+        text = _format_history(log, 4000, speaker_names={'a': '林照', 'b': '沈棠'})
+        assert '林照: 我守门' in text and '沈棠: 我问玛拉' in text
+
+    def test_past_decision_is_not_rendered_as_current_party_consent(self):
+        from src.llm.context_builder import _fact_lines
+        lines = _fact_lines([{'type': 'decision_made', 'content': '暂不进入地下室'},
+                             {'type': 'clue', 'content': '止动销已找到'}], 'zh-CN')
+        assert '历史决定' in lines[0] and '不代表本轮已确认计划' in lines[0]
+        assert lines[1] == '- 止动销已找到'
+
     def test_empty(self):
         assert _format_history([], 1000) == ""
 

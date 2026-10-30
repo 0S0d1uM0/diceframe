@@ -482,9 +482,12 @@ async def submit_intent(
             "RULESET_INTENT_HOOKS_UNAVAILABLE",
             "权威规则运行时缺少请求身份与投影边界",
         )
-    intent = runtime.prepare_intent_submission(
-        intent, effective_requester, requester_is_gm,
-    )
+    try:
+        intent = runtime.prepare_intent_submission(
+            intent, effective_requester, requester_is_gm,
+        )
+    except ValueError as exc:
+        return _error('INVALID_INTENT_SHAPE', str(exc))
 
     if dependencies.seat_runtime is not None and isinstance(runtime, HostedIntentChoiceRuntime):
         async def preflight() -> dict | None:

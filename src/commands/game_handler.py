@@ -334,7 +334,17 @@ class GameHandler:
             prompt_composer=self._prompt,
             requires_structured_intent=requires_structured_intent,
             seat_runtime=getattr(self, "ai_seat_runtime", None),
+            player_lore=getattr(self, 'investigator_lore', None),
         )
+
+    async def investigator_lore(self, instance: GameInstance, uid: str, query: str) -> list[dict]:
+        from src.commands.player_knowledge import retrieve_player_lore
+        return await retrieve_player_lore(instance, uid, query,
+            retriever=self.lore_retriever, projection=self.content_projection)
+
+    async def deliberate_party(self, instance: GameInstance) -> list[dict]:
+        from src.commands.party_discussion import deliberate
+        return await deliberate(instance, self.llm_client, getattr(self, 'ai_seat_runtime', None), self.investigator_lore)
 
     async def _process_round_impl(self, instance: GameInstance, *, on_delta=None, on_reset=None) -> tuple[str, dict | None]:
         """兼容旧内部调用；实际逻辑已拆到 RoundProcessor。

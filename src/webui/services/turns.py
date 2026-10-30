@@ -292,9 +292,30 @@ async def _prepare_checks(
     """调用两阶段处理器；为外部/测试处理器保留同步兼容入口。"""
     ai_prepare = dependencies.prepare_round_checks_ai
     if ai_prepare:
-        return list((await ai_prepare(instance)) or [])
-    legacy_prepare = dependencies.prepare_round_checks
-    return list((legacy_prepare(instance) if legacy_prepare else []) or [])
+        result = list((await ai_prepare(instance)) or [])
+    else:
+        legacy_prepare = dependencies.prepare_round_checks
+        result = list((legacy_prepare(instance) if legacy_prepare else []) or [])
+    rule = dependencies.load_rule_for_game(instance)
+    if rule is not None:
+        from src.rulesets.contracts import AutomaticLuckDecisionRuntime
+        from src.engine.player_control import control_mode
+        runtime = dependencies.ruleset_registry.resolve(rule.template)
+        if isinstance(runtime, AutomaticLuckDecisionRuntime):
+            for check in result:
+                uid = str(check.get('actor_uid') or '')
+                if (check.get('luck_decision') != 'pending' or uid not in instance.players
+                        or control_mode(instance, uid) != 'ai'):
+                    continue
+                decision = runtime.automatic_luck_decision(instance, rule, check)
+                if type(decision) is bool:
+                    resolved = await dependencies.resolve_luck_decision(
+                        game_key='|'.join(instance.game_key), check_id=str(check['check_id']),
+                        actor_uid=uid, spend=decision,
+                    )
+                    if not resolved.get('ok'):
+                        raise ValueError('Automatic Luck decision rejected by core resolver')
+    return result
 
 
 async def _fill_ai_player_actions(
@@ -313,6 +334,10 @@ async def _fill_ai_player_actions(
     补了行动但本轮没有推进时，那条行动不能只留在内存里。
     """
     fill = dependencies.fill_ai_player_actions
+    rule = dependencies.load_rule_for_game(instance)
+    if rule is not None and rule.template.get('party_planning'):
+        # Only the confirmed-plan command enqueues actions on deliberating tables.
+        return False
     # 闸门只有一个所有者：``ai_player.fill_ai_player_actions`` 自己决定该不该行动
     # （真人交齐，或"全 AI 桌没有真人可等"）。这里再拦一道旧闸门会让全 AI 桌永远
     # 进不去——没有活跃真人时 ``human_actions_ready()`` 恒为 False，正是要修的场景。
@@ -927,6 +952,9 @@ async def submit_action(
     if not instance:
         return _result({"error": "游戏不存在，请刷新页面重新开始"}, 404)
     rule = dependencies.load_rule_for_game(instance)
+    if rule is not None and rule.template.get('party_planning'):
+        return _result({'ok': False, 'code': 'PARTY_PLAN_REQUIRED',
+                        'error': '请先在队内讨论中提出行动、全员确认，再提交给KP'}, 409)
     requires_structured = False
     if rule is not None:
         try:
@@ -1182,6 +1210,17 @@ async def advance_round(
         return _result({"error": "not found"}, 404)
     if actor_uid != instance.gm_uid:
         return _result({"ok": False, "error": "仅 GM 可推进"}, 403)
+    rule = dependencies.load_rule_for_game(instance)
+    if rule is not None and rule.template.get('party_planning'):
+        from src.engine.party_planning import view as plan_view
+        if module_hooks.combat_view(instance)['combat_active']:
+            return _result({'ok': False, 'code': 'COMBAT_ACTION_REQUIRED',
+                            'error': '请先完成当前战斗行动或防守反应'}, 409)
+        if instance.state == GameState.PAUSED and plan_view(instance)['committed']:
+            await instance.resume()
+        if instance.state == GameState.ACTIVE_ACTION and not plan_view(instance)['committed']:
+            return _result({'ok': False, 'code': 'PARTY_PLAN_REQUIRED',
+                            'error': '队内计划尚未全员确认并提交，KP不会执行讨论中的提案'}, 409)
     progression.require_writable(instance)
     session_stats.require_writable(instance)
     checks.require_writable(instance)

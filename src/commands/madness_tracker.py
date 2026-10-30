@@ -26,6 +26,9 @@ class MadnessTracker:
             madness = character_sheet.get("madness")
             if not madness or madness.get("type") is None:
                 continue
+            if 'remaining_rounds' not in madness:
+                # Ruleset-owned hours/day durations are not legacy round timers.
+                continue
             madness["remaining_rounds"] = madness.get("remaining_rounds", 0) - 1
             name = player.get("character_name", uid)
             if madness["remaining_rounds"] <= 0:

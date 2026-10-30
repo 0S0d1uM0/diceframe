@@ -262,6 +262,7 @@ async def fill_ai_player_actions(
     temperature: float = DEFAULT_TEMPERATURE,
     requires_structured_intent: StructuredIntentRequirement = False,
     seat_runtime: SeatRuntime | None = None,
+    player_lore: Any = None,
 ) -> list[dict[str, Any]]:
     """Let every AI-hosted seat declare one action for the current round.
 
@@ -291,6 +292,7 @@ async def fill_ai_player_actions(
                 style_prompt=generation.style_prompt if generation is not None else "",
                 unavailable_reason=generation.reason if generation is not None else "client_unavailable",
                 admission_check=generation.admission_check if generation is not None else None,
+                player_lore=player_lore,
             )
         finally:
             if generation is not None:
@@ -348,6 +350,7 @@ async def _fill_one(
     style_prompt: str = "",
     unavailable_reason: str = "client_unavailable",
     admission_check: Callable[[], str] | None = None,
+    player_lore: Any = None,
 ) -> dict[str, Any]:
     if not instance.is_alive(uid):
         # 死亡席位不能行动（add_action 也会拒绝），不必浪费一次模型调用。
@@ -396,9 +399,11 @@ async def _fill_one(
     request = build_ai_player_request(instance, uid)
     tokens = 0
     try:
+        lore_entries = await player_lore(instance, uid, request) if player_lore is not None else []
         context = await _build_player_context(
             instance, uid, system_prompt, request,
             prompt_composer=prompt_composer, provider_name=provider_name,
+            lore_entries=lore_entries,
         )
         response = await llm_client.call(
             system_prompt, context, temperature=temperature, max_tokens=max_tokens,
@@ -527,19 +532,20 @@ async def _build_player_context(
     *,
     prompt_composer: Any,
     provider_name: str,
+    lore_entries: list[dict] | None = None,
 ) -> str:
     """Reuse the project's player-safe context builder; never a GM context.
 
-    No lorebook entries are passed: an AI seat gets no knowledge channel that a
-    human seat does not already have through the public timeline.
+    Caller supplies only the intersection of player-visible retrieval and the
+    authoritative character content projection. The builder filters it again.
     """
 
     if prompt_composer is not None:
         return await prompt_composer.build_player_safe_context(
-            instance, system_prompt, [], request, uid, provider_name=provider_name,
+            instance, system_prompt, lore_entries or [], request, uid, provider_name=provider_name,
         )
     return await build_player_safe_context(
-        instance, system_prompt, [], request, uid, provider_name=provider_name,
+        instance, system_prompt, lore_entries or [], request, uid, provider_name=provider_name,
     )
 
 

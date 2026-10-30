@@ -46,5 +46,6 @@ export function useGame() {
     checkReveals: ref<Record<string, { by: string; at: string }>>({}),
     diceRevealMode: ref<'auto' | 'click'>('auto'),
     rulesetStateSignal: shallowRef(0),
+    partyPlanSignal: shallowRef(0),
   }
 }

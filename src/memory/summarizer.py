@@ -8,6 +8,7 @@ from __future__ import annotations
 from src.engine import module_hooks
 
 import logging
+import json
 
 from src.engine.game_instance import GameInstance
 from src.engine.language import localized_text
@@ -187,7 +188,8 @@ def build_summary_input(instance: GameInstance, last_n_rounds: int = 10) -> str:
     lines = []
     for entry in recent:
         actions = "; ".join(
-            a.get("text", "") for a in entry.get("actions", [])
+            f"{getattr(instance, 'players', {}).get(a.get('user_id'), {}).get('character_name') or a.get('user_id') or '?'}: {a.get('text', '')}"
+            for a in entry.get("actions", [])
             if a.get("user_id") != "system"
         )
         gm = sanitize_narration(entry.get("gm_response", ""))
@@ -221,7 +223,8 @@ async def summarize(instance: GameInstance, llm_client, system_prompt: str,
             "de": _SUMMARY_PROMPT_ROLLING_DE,
         })
         prompt = template.format(
-            previous_summary=prev_narrative, log_text=log_text,
+            previous_summary=json.dumps({'narrative': prev_narrative,
+                'key_facts': module_hooks.narrative_view(instance)['key_facts']}, ensure_ascii=False), log_text=log_text,
         )
     else:
         template = localized_text(instance.language, {
@@ -233,8 +236,16 @@ async def summarize(instance: GameInstance, llm_client, system_prompt: str,
         prompt = template.format(log_text=log_text)
 
     try:
+        memory_policy = localized_text(instance.language, {
+            'zh-CN': '摘要约束：保留说话人和重要事实的来源回合。玩家行动只是尝试，以已结算结果为准；'
+                     'NPC猜测和未证实推论不能升级成客观事实。暂时计划不能当成永久限制，'
+                     '已被后续行动取代的决定或状态应更新；未解决的重要线索要保留。',
+            'en': 'Preserve speakers and source rounds. Actions are intentions; settled results take priority. '
+                  'Do not turn NPC beliefs or guesses into facts. Temporary plans are not permanent restrictions; '
+                  'update superseded decisions/statuses and retain important unresolved clues.',
+        })
         response = await llm_client.call(
-            system_prompt=system_prompt,
+            system_prompt=system_prompt + '\n\n' + memory_policy,
             user_message=prompt,
             temperature=0.3,  # 摘要用低温度
             max_tokens=max_tokens,
@@ -242,16 +253,18 @@ async def summarize(instance: GameInstance, llm_client, system_prompt: str,
         # 解析 JSON（复用 generation/creator 的 parse_json）
         from src.generation.creator import parse_json
         data = parse_json(response.content)
-        if data:
+        if isinstance(data, dict):
             instance.set_summary_narrative(sanitize_narration(
                 data.get("narrative", response.narration)
             ))
-            instance.set_key_facts(data.get("key_facts", []))
+            facts = data.get('key_facts')
+            if isinstance(facts, list) and all(isinstance(row, dict) and isinstance(row.get('content'), str) for row in facts):
+                instance.set_key_facts(facts)
         else:
             instance.set_summary_narrative(sanitize_narration(
                 response.narration or response.content
             ))
-            instance.set_key_facts([])
+            # A malformed summary must not erase durable facts from earlier play.
         logger.info("摘要生成完成: round=%d", progression_state.round_value(instance))
     except Exception:
         logger.exception("摘要生成失败")
